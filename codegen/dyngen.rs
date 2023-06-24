@@ -5,7 +5,7 @@ use proc_macro2::Ident;
 
 /// Used to build the output tokens for dynamic bindings.
 #[derive(Default)]
-pub struct DynamicItems {
+pub(crate) struct DynamicItems {
     /// Tracks the tokens that will appears inside the library struct -- e.g.:
     /// ```ignore
     /// struct Lib {
@@ -69,11 +69,11 @@ pub struct DynamicItems {
 }
 
 impl DynamicItems {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
-    pub fn get_tokens(
+    pub(crate) fn get_tokens(
         &self,
         lib_ident: Ident,
         ctx: &BindgenContext,
@@ -170,7 +170,7 @@ impl DynamicItems {
         if !is_variadic {
             self.struct_implementation.push(quote! {
                 #(#attributes)*
-                pub unsafe fn #ident ( &self, #( #args ),* ) -> #ret_ty {
+                pub unsafe fn #ident ( &self, #( #args ),* ) #ret_ty {
                     #call_body
                 }
             });
