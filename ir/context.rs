@@ -2,14 +2,13 @@
 
 use super::super::time::Timer;
 use super::analysis::{
-    analyze, as_cannot_derive_set, CannotDerive, DeriveTrait,
-    HasDestructorAnalysis, HasFloat, HasTypeParameterInArray,
-    HasVtableAnalysis, HasVtableResult, SizednessAnalysis, SizednessResult,
-    UsedTemplateParameters,
+    analyze, as_cannot_derive_set, CannotDerive, DeriveTrait, HasDestructorAnalysis, HasFloat,
+    HasTypeParameterInArray, HasVtableAnalysis, HasVtableResult, SizednessAnalysis,
+    SizednessResult, UsedTemplateParameters,
 };
 use super::derive::{
-    CanDerive, CanDeriveCopy, CanDeriveDebug, CanDeriveDefault, CanDeriveEq,
-    CanDeriveHash, CanDeriveOrd, CanDerivePartialEq, CanDerivePartialOrd,
+    CanDerive, CanDeriveCopy, CanDeriveDebug, CanDeriveDefault, CanDeriveEq, CanDeriveHash,
+    CanDeriveOrd, CanDerivePartialEq, CanDerivePartialOrd,
 };
 use super::function::Function;
 use super::int::IntKind;
@@ -252,9 +251,8 @@ where
     T: Copy + Into<ItemId>,
 {
     fn can_derive_partialord(&self, ctx: &BindgenContext) -> bool {
-        ctx.options().derive_partialord &&
-            ctx.lookup_can_derive_partialeq_or_partialord(*self) ==
-                CanDerive::Yes
+        ctx.options().derive_partialord
+            && ctx.lookup_can_derive_partialeq_or_partialord(*self) == CanDerive::Yes
     }
 }
 
@@ -263,9 +261,8 @@ where
     T: Copy + Into<ItemId>,
 {
     fn can_derive_partialeq(&self, ctx: &BindgenContext) -> bool {
-        ctx.options().derive_partialeq &&
-            ctx.lookup_can_derive_partialeq_or_partialord(*self) ==
-                CanDerive::Yes
+        ctx.options().derive_partialeq
+            && ctx.lookup_can_derive_partialeq_or_partialord(*self) == CanDerive::Yes
     }
 }
 
@@ -274,10 +271,9 @@ where
     T: Copy + Into<ItemId>,
 {
     fn can_derive_eq(&self, ctx: &BindgenContext) -> bool {
-        ctx.options().derive_eq &&
-            ctx.lookup_can_derive_partialeq_or_partialord(*self) ==
-                CanDerive::Yes &&
-            !ctx.lookup_has_float(*self)
+        ctx.options().derive_eq
+            && ctx.lookup_can_derive_partialeq_or_partialord(*self) == CanDerive::Yes
+            && !ctx.lookup_has_float(*self)
     }
 }
 
@@ -286,10 +282,9 @@ where
     T: Copy + Into<ItemId>,
 {
     fn can_derive_ord(&self, ctx: &BindgenContext) -> bool {
-        ctx.options().derive_ord &&
-            ctx.lookup_can_derive_partialeq_or_partialord(*self) ==
-                CanDerive::Yes &&
-            !ctx.lookup_has_float(*self)
+        ctx.options().derive_ord
+            && ctx.lookup_can_derive_partialeq_or_partialord(*self) == CanDerive::Yes
+            && !ctx.lookup_has_float(*self)
     }
 }
 
@@ -365,7 +360,7 @@ pub(crate) struct BindgenContext {
     includes: StdHashMap<String, (String, usize)>,
 
     /// A set of all the included filenames.
-    deps: BTreeSet<String>,
+    deps: BTreeSet<Box<str>>,
 
     /// The active replacements collected from replaces="xxx" annotations.
     replacements: HashMap<Vec<String>, ItemId>,
@@ -391,8 +386,7 @@ pub(crate) struct BindgenContext {
     allowlisted: Option<ItemSet>,
 
     /// Cache for calls to `ParseCallbacks::blocklisted_type_implements_trait`
-    blocklisted_types_implement_traits:
-        RefCell<HashMap<DeriveTrait, HashMap<ItemId, CanDerive>>>,
+    blocklisted_types_implement_traits: RefCell<HashMap<DeriveTrait, HashMap<ItemId, CanDerive>>>,
 
     /// The set of `ItemId`s that are allowlisted for code generation _and_ that
     /// we should generate accounting for the codegen options.
@@ -528,21 +522,16 @@ impl<'ctx> AllowlistedItemsTraversal<'ctx> {
 
 impl BindgenContext {
     /// Construct the context for the given `options`.
-    pub(crate) fn new(
-        options: BindgenOptions,
-        input_unsaved_files: &[clang::UnsavedFile],
-    ) -> Self {
+    pub(crate) fn new(options: BindgenOptions, input_unsaved_files: &[clang::UnsavedFile]) -> Self {
         // TODO(emilio): Use the CXTargetInfo here when available.
         //
         // see: https://reviews.llvm.org/D32389
         let index = clang::Index::new(false, true);
 
-        let parse_options =
-            clang_sys::CXTranslationUnit_DetailedPreprocessingRecord;
+        let parse_options = clang_sys::CXTranslationUnit_DetailedPreprocessingRecord;
 
         let translation_unit = {
-            let _t =
-                Timer::new("translation_unit").with_output(options.time_phases);
+            let _t = Timer::new("translation_unit").with_output(options.time_phases);
 
             clang::TranslationUnit::parse(
                 &index,
@@ -550,13 +539,16 @@ impl BindgenContext {
                 &options.clang_args,
                 input_unsaved_files,
                 parse_options,
-            ).expect("libclang error; possible causes include:
+            )
+            .expect(
+                "libclang error; possible causes include:
 - Invalid flag syntax
 - Unrecognized flags
 - Invalid flag arguments
 - File I/O errors
 - Host vs. target architecture mismatch
-If you encounter an error missing from this list, please file an issue or a PR!")
+If you encounter an error missing from this list, please file an issue or a PR!",
+            )
         };
 
         let target_info = clang::TargetInfo::new(&translation_unit);
@@ -638,9 +630,9 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     /// Finish parsing the current partial type, pop it off the
     /// `currently_parsed_types` stack, and return it.
     pub(crate) fn finish_parsing(&mut self) -> PartialType {
-        self.currently_parsed_types.pop().expect(
-            "should have been parsing a type, if we finished parsing a type",
-        )
+        self.currently_parsed_types
+            .pop()
+            .expect("should have been parsing a type, if we finished parsing a type")
     }
 
     /// Add the location of the `#include` directive for the `included_file`.
@@ -656,20 +648,17 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     }
 
     /// Get the location of the first `#include` directive for the `included_file`.
-    pub(crate) fn included_file_location(
-        &self,
-        included_file: &str,
-    ) -> Option<(String, usize)> {
+    pub(crate) fn included_file_location(&self, included_file: &str) -> Option<(String, usize)> {
         self.includes.get(included_file).cloned()
     }
 
     /// Add an included file.
-    pub(crate) fn add_dep(&mut self, dep: String) {
+    pub(crate) fn add_dep(&mut self, dep: Box<str>) {
         self.deps.insert(dep);
     }
 
     /// Get any included files.
-    pub(crate) fn deps(&self) -> &BTreeSet<String> {
+    pub(crate) fn deps(&self) -> &BTreeSet<Box<str>> {
         &self.deps
     }
 
@@ -688,19 +677,18 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             item, declaration, location
         );
         debug_assert!(
-            declaration.is_some() ||
-                !item.kind().is_type() ||
-                item.kind().expect_type().is_builtin_or_type_param() ||
-                item.kind().expect_type().is_opaque(self, &item) ||
-                item.kind().expect_type().is_unresolved_ref(),
+            declaration.is_some()
+                || !item.kind().is_type()
+                || item.kind().expect_type().is_builtin_or_type_param()
+                || item.kind().expect_type().is_opaque(self, &item)
+                || item.kind().expect_type().is_unresolved_ref(),
             "Adding a type without declaration?"
         );
 
         let id = item.id();
         let is_type = item.kind().is_type();
         let is_unnamed = is_type && item.expect_type().name().is_none();
-        let is_template_instantiation =
-            is_type && item.expect_type().is_template_instantiation();
+        let is_template_instantiation = is_type && item.expect_type().is_template_instantiation();
 
         if item.id() != self.root_module {
             self.add_item_to_module(&item);
@@ -740,10 +728,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                 debug!(
                     "Invalid declaration {:?} found for type {:?}",
                     declaration,
-                    self.resolve_item_fallible(id)
-                        .unwrap()
-                        .kind()
-                        .expect_type()
+                    self.resolve_item_fallible(id).unwrap().kind().expect_type()
                 );
                 return;
             }
@@ -802,11 +787,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     }
 
     /// Add a new named template type parameter to this context's item set.
-    pub(crate) fn add_type_param(
-        &mut self,
-        item: Item,
-        definition: clang::Cursor,
-    ) {
+    pub(crate) fn add_type_param(&mut self, item: Item, definition: clang::Cursor) {
         debug!(
             "BindgenContext::add_type_param: item = {:?}; definition = {:?}",
             item, definition
@@ -816,10 +797,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             item.expect_type().is_type_param(),
             "Should directly be a named type, not a resolved reference or anything"
         );
-        assert_eq!(
-            definition.kind(),
-            clang_sys::CXCursor_TemplateTypeParameter
-        );
+        assert_eq!(definition.kind(), clang_sys::CXCursor_TemplateTypeParameter);
 
         self.add_item_to_module(&item);
 
@@ -841,14 +819,8 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
     /// Get the named type defined at the given cursor location, if we've
     /// already added one.
-    pub(crate) fn get_type_param(
-        &self,
-        definition: &clang::Cursor,
-    ) -> Option<TypeId> {
-        assert_eq!(
-            definition.kind(),
-            clang_sys::CXCursor_TemplateTypeParameter
-        );
+    pub(crate) fn get_type_param(&self, definition: &clang::Cursor) -> Option<TypeId> {
+        assert_eq!(definition.kind(), clang_sys::CXCursor_TemplateTypeParameter);
         self.type_params.get(definition).cloned()
     }
 
@@ -916,9 +888,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     }
 
     /// Gather all the unresolved type references.
-    fn collect_typerefs(
-        &mut self,
-    ) -> Vec<(ItemId, clang::Type, clang::Cursor, Option<ItemId>)> {
+    fn collect_typerefs(&mut self) -> Vec<(ItemId, clang::Type, clang::Cursor, Option<ItemId>)> {
         debug_assert!(!self.collected_typerefs);
         self.collected_typerefs = true;
         let mut typerefs = vec![];
@@ -930,9 +900,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                 None => continue,
             };
 
-            if let TypeKind::UnresolvedTypeRef(ref ty, loc, parent_id) =
-                *ty.kind()
-            {
+            if let TypeKind::UnresolvedTypeRef(ref ty, loc, parent_id) = *ty.kind() {
                 typerefs.push((id, *ty, loc, parent_id));
             };
         }
@@ -946,20 +914,20 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         let typerefs = self.collect_typerefs();
 
         for (id, ty, loc, parent_id) in typerefs {
-            let _resolved =
-                {
-                    let resolved = Item::from_ty(&ty, loc, parent_id, self)
-                    .unwrap_or_else(|_| {
-                        warn!("Could not resolve type reference, falling back \
-                               to opaque blob");
-                        Item::new_opaque_type(self.next_item_id(), &ty, self)
-                    });
+            let _resolved = {
+                let resolved = Item::from_ty(&ty, loc, parent_id, self).unwrap_or_else(|_| {
+                    warn!(
+                        "Could not resolve type reference, falling back \
+                               to opaque blob"
+                    );
+                    Item::new_opaque_type(self.next_item_id(), &ty, self)
+                });
 
-                    let item = self.items[id.0].as_mut().unwrap();
-                    *item.kind_mut().as_type_mut().unwrap().kind_mut() =
-                        TypeKind::ResolvedTypeRef(resolved);
-                    resolved
-                };
+                let item = self.items[id.0].as_mut().unwrap();
+                *item.kind_mut().as_type_mut().unwrap().kind_mut() =
+                    TypeKind::ResolvedTypeRef(resolved);
+                resolved
+            };
 
             // Something in the STL is trolling me. I don't need this assertion
             // right now, but worth investigating properly once this lands.
@@ -1003,8 +971,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
         assert!(self.collected_typerefs());
 
-        let need_bitfield_allocation =
-            mem::take(&mut self.need_bitfield_allocation);
+        let need_bitfield_allocation = mem::take(&mut self.need_bitfield_allocation);
         for id in need_bitfield_allocation {
             self.with_loaned_item(id, |ctx, item| {
                 let ty = item.kind_mut().as_type_mut().unwrap();
@@ -1071,10 +1038,10 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             };
 
             match *ty.kind() {
-                TypeKind::Comp(..) |
-                TypeKind::TemplateAlias(..) |
-                TypeKind::Enum(..) |
-                TypeKind::Alias(..) => {}
+                TypeKind::Comp(..)
+                | TypeKind::TemplateAlias(..)
+                | TypeKind::Enum(..)
+                | TypeKind::Alias(..) => {}
                 _ => continue,
             }
 
@@ -1086,10 +1053,8 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                     // We set this just after parsing the annotation. It's
                     // very unlikely, but this can happen.
                     if self.resolve_item_fallible(*replacement).is_some() {
-                        replacements.push((
-                            id.expect_type_id(self),
-                            replacement.expect_type_id(self),
-                        ));
+                        replacements
+                            .push((id.expect_type_id(self), replacement.expect_type_id(self)));
                     }
                 }
             }
@@ -1133,13 +1098,11 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                     .chain(Some(immut_self.root_module.into()))
                     .find(|id| {
                         let item = immut_self.resolve_item(*id);
-                        item.as_module().map_or(false, |m| {
-                            m.children().contains(&replacement_id.into())
-                        })
+                        item.as_module()
+                            .map_or(false, |m| m.children().contains(&replacement_id.into()))
                     })
             };
-            let old_module = old_module
-                .expect("Every replacement item should be in a module");
+            let old_module = old_module.expect("Every replacement item should be in a module");
 
             let new_module = {
                 let immut_self = &*self;
@@ -1147,8 +1110,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                     .ancestors(immut_self)
                     .find(|id| immut_self.resolve_item(*id).is_module())
             };
-            let new_module =
-                new_module.unwrap_or_else(|| self.root_module.into());
+            let new_module = new_module.unwrap_or_else(|| self.root_module.into());
 
             if new_module == old_module {
                 // Already in the correct module.
@@ -1175,10 +1137,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
     /// Enter the code generation phase, invoke the given callback `cb`, and
     /// leave the code generation phase.
-    pub(crate) fn gen<F, Out>(
-        mut self,
-        cb: F,
-    ) -> Result<(Out, BindgenOptions), CodegenError>
+    pub(crate) fn gen<F, Out>(mut self, cb: F) -> Result<(Out, BindgenOptions), CodegenError>
     where
         F: FnOnce(&Self) -> Result<Out, CodegenError>,
     {
@@ -1230,18 +1189,12 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         }
     }
 
-    fn assert_no_dangling_item_traversal(
-        &self,
-    ) -> traversal::AssertNoDanglingItemsTraversal {
+    fn assert_no_dangling_item_traversal(&self) -> traversal::AssertNoDanglingItemsTraversal {
         assert!(self.in_codegen_phase());
         assert!(self.current_module == self.root_module);
 
         let roots = self.items().map(|(id, _)| id);
-        traversal::AssertNoDanglingItemsTraversal::new(
-            self,
-            roots,
-            traversal::all_edges,
-        )
+        traversal::AssertNoDanglingItemsTraversal::new(self, roots, traversal::all_edges)
     }
 
     /// When the `__testing_only_extra_assertions` feature is enabled, walk over
@@ -1268,15 +1221,10 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                         id.ancestors(self)
                             .chain(Some(self.root_module.into()))
                             .any(|ancestor| {
-                                debug!(
-                                    "Checking if {:?} is a child of {:?}",
-                                    id, ancestor
-                                );
+                                debug!("Checking if {:?} is a child of {:?}", id, ancestor);
                                 self.resolve_item(ancestor)
                                     .as_module()
-                                    .map_or(false, |m| {
-                                        m.children().contains(&id)
-                                    })
+                                    .map_or(false, |m| m.children().contains(&id))
                             })
                     },
                     "{:?} should be in some ancestor module's children set",
@@ -1385,11 +1333,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     /// manually provide a definition for them. To give them the most
     /// flexibility when doing that, we assume that they use every template
     /// parameter and always pass template arguments through in instantiations.
-    pub(crate) fn uses_template_parameter(
-        &self,
-        item: ItemId,
-        template_param: TypeId,
-    ) -> bool {
+    pub(crate) fn uses_template_parameter(&self, item: ItemId, template_param: TypeId) -> bool {
         assert!(
             self.in_codegen_phase(),
             "We only compute template parameter usage as we enter codegen"
@@ -1410,7 +1354,9 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             .as_ref()
             .expect("should have found template parameter usage if we're in codegen")
             .get(&item)
-            .map_or(false, |items_used_params| items_used_params.contains(&template_param))
+            .map_or(false, |items_used_params| {
+                items_used_params.contains(&template_param)
+            })
     }
 
     /// Return `true` if `item` uses any unbound, generic template parameters,
@@ -1425,9 +1371,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
         self.used_template_parameters
             .as_ref()
-            .expect(
-                "should have template parameter usage info in codegen phase",
-            )
+            .expect("should have template parameter usage info in codegen phase")
             .get(&item)
             .map_or(false, |used| !used.is_empty())
     }
@@ -1486,10 +1430,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
     /// Resolve the given `ItemId` into an `Item`, or `None` if no such item
     /// exists.
-    pub(crate) fn resolve_item_fallible<Id: Into<ItemId>>(
-        &self,
-        id: Id,
-    ) -> Option<&Item> {
+    pub(crate) fn resolve_item_fallible<Id: Into<ItemId>>(&self, id: Id) -> Option<&Item> {
         self.items.get(id.into().0)?.as_ref()
     }
 
@@ -1517,19 +1458,12 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     /// TODO(emilio): We could consider doing this only when
     /// declaration.lexical_parent() != definition.lexical_parent(), but it's
     /// not sure it's worth it.
-    pub(crate) fn add_semantic_parent(
-        &mut self,
-        definition: clang::Cursor,
-        parent_id: ItemId,
-    ) {
+    pub(crate) fn add_semantic_parent(&mut self, definition: clang::Cursor, parent_id: ItemId) {
         self.semantic_parents.insert(definition, parent_id);
     }
 
     /// Returns a known semantic parent for a given definition.
-    pub(crate) fn known_semantic_parent(
-        &self,
-        definition: clang::Cursor,
-    ) -> Option<ItemId> {
+    pub(crate) fn known_semantic_parent(&self, definition: clang::Cursor) -> Option<ItemId> {
         self.semantic_parents.get(&definition).cloned()
     }
 
@@ -1548,21 +1482,15 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             .cur_type()
             .canonical_declaration(Some(instantiation))
             .and_then(|canon_decl| {
-                self.get_resolved_type(&canon_decl).and_then(
-                    |template_decl_id| {
-                        let num_params =
-                            template_decl_id.num_self_template_params(self);
+                self.get_resolved_type(&canon_decl)
+                    .and_then(|template_decl_id| {
+                        let num_params = template_decl_id.num_self_template_params(self);
                         if num_params == 0 {
                             None
                         } else {
-                            Some((
-                                *canon_decl.cursor(),
-                                template_decl_id.into(),
-                                num_params,
-                            ))
+                            Some((*canon_decl.cursor(), template_decl_id.into(), num_params))
                         }
-                    },
-                )
+                    })
             })
             .or_else(|| {
                 // If we haven't already parsed the declaration of
@@ -1581,8 +1509,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                             .cloned()
                     })
                     .and_then(|template_decl| {
-                        let num_template_params =
-                            template_decl.num_self_template_params(self);
+                        let num_template_params = template_decl.num_self_template_params(self);
                         if num_template_params == 0 {
                             None
                         } else {
@@ -1636,8 +1563,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         ty: &clang::Type,
         location: clang::Cursor,
     ) -> Option<TypeId> {
-        let num_expected_args =
-            self.resolve_type(template).num_self_template_params(self);
+        let num_expected_args = self.resolve_type(template).num_self_template_params(self);
         if num_expected_args == 0 {
             warn!(
                 "Tried to instantiate a template for which we could not \
@@ -1677,36 +1603,25 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
         for child in children.iter().rev() {
             match child.kind() {
-                clang_sys::CXCursor_TypeRef |
-                clang_sys::CXCursor_TypedefDecl |
-                clang_sys::CXCursor_TypeAliasDecl => {
+                clang_sys::CXCursor_TypeRef
+                | clang_sys::CXCursor_TypedefDecl
+                | clang_sys::CXCursor_TypeAliasDecl => {
                     // The `with_id` ID will potentially end up unused if we give up
                     // on this type (for example, because it has const value
                     // template args), so if we pass `with_id` as the parent, it is
                     // potentially a dangling reference. Instead, use the canonical
                     // template declaration as the parent. It is already parsed and
                     // has a known-resolvable `ItemId`.
-                    let ty = Item::from_ty_or_ref(
-                        child.cur_type(),
-                        *child,
-                        Some(template.into()),
-                        self,
-                    );
+                    let ty =
+                        Item::from_ty_or_ref(child.cur_type(), *child, Some(template.into()), self);
                     args.push(ty);
                 }
                 clang_sys::CXCursor_TemplateRef => {
-                    let (
-                        template_decl_cursor,
-                        template_decl_id,
-                        num_expected_template_args,
-                    ) = self.get_declaration_info_for_template_instantiation(
-                        child,
-                    )?;
+                    let (template_decl_cursor, template_decl_id, num_expected_template_args) =
+                        self.get_declaration_info_for_template_instantiation(child)?;
 
-                    if num_expected_template_args == 0 ||
-                        child.has_at_least_num_children(
-                            num_expected_template_args,
-                        )
+                    if num_expected_template_args == 0
+                        || child.has_at_least_num_children(num_expected_template_args)
                     {
                         // Do a happy little parse. See comment in the TypeRef
                         // match arm about parent IDs.
@@ -1743,14 +1658,10 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                             template_decl_id.as_type_id_unchecked(),
                             sub_args,
                         );
-                        let sub_kind =
-                            TypeKind::TemplateInstantiation(sub_inst);
+                        let sub_kind = TypeKind::TemplateInstantiation(sub_inst);
                         let sub_ty = Type::new(
                             sub_name,
-                            template_decl_cursor
-                                .cur_type()
-                                .fallible_layout(self)
-                                .ok(),
+                            template_decl_cursor.cur_type().fallible_layout(self).ok(),
                             sub_kind,
                             false,
                         );
@@ -1777,10 +1688,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                     }
                 }
                 _ => {
-                    warn!(
-                        "Found template arg cursor we can't handle: {:?}",
-                        child
-                    );
+                    warn!("Found template arg cursor we can't handle: {:?}", child);
                     found_const_arg = true;
                 }
             }
@@ -1809,9 +1717,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         }
 
         args.reverse();
-        let type_kind = TypeKind::TemplateInstantiation(
-            TemplateInstantiation::new(template, args),
-        );
+        let type_kind = TypeKind::TemplateInstantiation(TemplateInstantiation::new(template, args));
         let name = ty.spelling();
         let name = if name.is_empty() { None } else { Some(name) };
         let ty = Type::new(
@@ -1882,9 +1788,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                 //   * we have already parsed and resolved this type, and
                 //     there's nothing left to do.
                 if let Some(location) = location {
-                    if decl.cursor().is_template_like() &&
-                        *ty != decl.cursor().cur_type()
-                    {
+                    if decl.cursor().is_template_like() && *ty != decl.cursor().cur_type() {
                         // For specialized type aliases, there's no way to get the
                         // template parameters as of this writing (for a struct
                         // specialization we wouldn't be in this branch anyway).
@@ -1895,10 +1799,9 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                         // exposed.
                         //
                         // This is _tricky_, I know :(
-                        if decl.cursor().kind() ==
-                            CXCursor_TypeAliasTemplateDecl &&
-                            !location.contains_cursor(CXCursor_TypeRef) &&
-                            ty.canonical_type().is_valid_and_exposed()
+                        if decl.cursor().kind() == CXCursor_TypeAliasTemplateDecl
+                            && !location.contains_cursor(CXCursor_TypeRef)
+                            && ty.canonical_type().is_valid_and_exposed()
                         {
                             return None;
                         }
@@ -2014,17 +1917,13 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                 return self.build_builtin_ty(&ty.atomic_value_type());
             }
             CXType_Complex => {
-                let float_type =
-                    ty.elem_type().expect("Not able to resolve complex type?");
+                let float_type = ty.elem_type().expect("Not able to resolve complex type?");
                 let float_kind = match float_type.kind() {
                     CXType_Float => FloatKind::Float,
                     CXType_Double => FloatKind::Double,
                     CXType_LongDouble => FloatKind::LongDouble,
                     CXType_Float128 => FloatKind::Float128,
-                    _ => panic!(
-                        "Non floating-type complex? {:?}, {:?}",
-                        ty, float_type,
-                    ),
+                    _ => panic!("Non floating-type complex? {:?}, {:?}", ty, float_type,),
                 };
                 TypeKind::Complex(float_kind)
             }
@@ -2060,19 +1959,13 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     }
 
     /// Get the currently parsed macros.
-    pub(crate) fn parsed_macros(
-        &self,
-    ) -> &StdHashMap<Vec<u8>, cexpr::expr::EvalResult> {
+    pub(crate) fn parsed_macros(&self) -> &StdHashMap<Vec<u8>, cexpr::expr::EvalResult> {
         debug_assert!(!self.in_codegen_phase());
         &self.parsed_macros
     }
 
     /// Mark the macro named `macro_name` as parsed.
-    pub(crate) fn note_parsed_macro(
-        &mut self,
-        id: Vec<u8>,
-        value: cexpr::expr::EvalResult,
-    ) {
+    pub(crate) fn note_parsed_macro(&mut self, id: Vec<u8>, value: cexpr::expr::EvalResult) {
         self.parsed_macros.insert(id, value);
     }
 
@@ -2089,10 +1982,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     pub(crate) fn replace(&mut self, name: &[String], potential_ty: ItemId) {
         match self.replacements.entry(name.into()) {
             Entry::Vacant(entry) => {
-                debug!(
-                    "Defining replacement for {:?} as {:?}",
-                    name, potential_ty
-                );
+                debug!("Defining replacement for {:?} as {:?}", name, potential_ty);
                 entry.insert(potential_ty);
             }
             Entry::Occupied(occupied) => {
@@ -2109,11 +1999,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
     /// Has the item with the given `name` and `id` been replaced by another
     /// type?
-    pub(crate) fn is_replaced_type<Id: Into<ItemId>>(
-        &self,
-        path: &[String],
-        id: Id,
-    ) -> bool {
+    pub(crate) fn is_replaced_type<Id: Into<ItemId>>(&self, path: &[String], id: Id) -> bool {
         let id = id.into();
         matches!(self.replacements.get(path), Some(replaced_by) if *replaced_by != id)
     }
@@ -2134,10 +2020,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
     /// Tokenizes a namespace cursor in order to get the name and kind of the
     /// namespace.
-    fn tokenize_namespace(
-        &self,
-        cursor: &clang::Cursor,
-    ) -> (Option<String>, ModuleKind) {
+    fn tokenize_namespace(&self, cursor: &clang::Cursor) -> (Option<String>, ModuleKind) {
         assert_eq!(
             cursor.kind(),
             ::clang_sys::CXCursor_Namespace,
@@ -2155,10 +2038,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         for token in cursor.tokens().iter() {
             match token.spelling() {
                 b"inline" => {
-                    debug_assert!(
-                        kind != ModuleKind::Inline,
-                        "Multiple inline keywords?"
-                    );
+                    debug_assert!(kind != ModuleKind::Inline, "Multiple inline keywords?");
                     kind = ModuleKind::Inline;
                     // When hitting a nested inline namespace we get a spelling
                     // that looks like ["inline", "foo"]. Deal with it properly.
@@ -2182,9 +2062,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                 name => {
                     if looking_for_name {
                         if module_name.is_none() {
-                            module_name = Some(
-                                String::from_utf8_lossy(name).into_owned(),
-                            );
+                            module_name = Some(String::from_utf8_lossy(name).into_owned());
                         }
                         break;
                     } else {
@@ -2300,10 +2178,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                             }
                         } else {
                             self.options.last_callback(|cb| {
-                                cb.blocklisted_type_implements_trait(
-                                    name,
-                                    derive_trait,
-                                )
+                                cb.blocklisted_type_implements_trait(name, derive_trait)
                             })
                         }
                     })
@@ -2314,9 +2189,8 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     /// Is the given type a type from <stdint.h> that corresponds to a Rust primitive type?
     pub(crate) fn is_stdint_type(&self, name: &str) -> bool {
         match name {
-            "int8_t" | "uint8_t" | "int16_t" | "uint16_t" | "int32_t" |
-            "uint32_t" | "int64_t" | "uint64_t" | "uintptr_t" |
-            "intptr_t" | "ptrdiff_t" => true,
+            "int8_t" | "uint8_t" | "int16_t" | "uint16_t" | "int32_t" | "uint32_t" | "int64_t"
+            | "uint64_t" | "uintptr_t" | "intptr_t" | "ptrdiff_t" => true,
             "size_t" | "ssize_t" => self.options.size_t_is_usize,
             _ => false,
         }
@@ -2344,10 +2218,11 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                 .filter(|&(_, item)| {
                     // If nothing is explicitly allowlisted, then everything is fair
                     // game.
-                    if self.options().allowlisted_types.is_empty() &&
-                        self.options().allowlisted_functions.is_empty() &&
-                        self.options().allowlisted_vars.is_empty() &&
-                        self.options().allowlisted_files.is_empty()
+                    if self.options().allowlisted_types.is_empty()
+                        && self.options().allowlisted_functions.is_empty()
+                        && self.options().allowlisted_vars.is_empty()
+                        && self.options().allowlisted_files.is_empty()
+                        && self.options().allowlisted_items.is_empty()
                     {
                         return true;
                     }
@@ -2364,11 +2239,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                         if let Some(location) = item.location() {
                             let (file, _, _, _) = location.location();
                             if let Some(filename) = file.name() {
-                                if self
-                                    .options()
-                                    .allowlisted_files
-                                    .matches(filename)
-                                {
+                                if self.options().allowlisted_files.matches(filename) {
                                     return true;
                                 }
                             }
@@ -2377,14 +2248,17 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
                     let name = item.path_for_allowlisting(self)[1..].join("::");
                     debug!("allowlisted_items: testing {:?}", name);
+
+                    if self.options().allowlisted_items.matches(&name) {
+                        return true;
+                    }
+
                     match *item.kind() {
                         ItemKind::Module(..) => true,
                         ItemKind::Function(_) => {
                             self.options().allowlisted_functions.matches(&name)
                         }
-                        ItemKind::Var(_) => {
-                            self.options().allowlisted_vars.matches(&name)
-                        }
+                        ItemKind::Var(_) => self.options().allowlisted_vars.matches(&name),
                         ItemKind::Type(ref ty) => {
                             if self.options().allowlisted_types.matches(&name) {
                                 return true;
@@ -2395,19 +2269,19 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                             // make the #[derive] analysis not be lame.
                             if !self.options().allowlist_recursively {
                                 match *ty.kind() {
-                                    TypeKind::Void |
-                                    TypeKind::NullPtr |
-                                    TypeKind::Int(..) |
-                                    TypeKind::Float(..) |
-                                    TypeKind::Complex(..) |
-                                    TypeKind::Array(..) |
-                                    TypeKind::Vector(..) |
-                                    TypeKind::Pointer(..) |
-                                    TypeKind::Reference(..) |
-                                    TypeKind::Function(..) |
-                                    TypeKind::ResolvedTypeRef(..) |
-                                    TypeKind::Opaque |
-                                    TypeKind::TypeParam => return true,
+                                    TypeKind::Void
+                                    | TypeKind::NullPtr
+                                    | TypeKind::Int(..)
+                                    | TypeKind::Float(..)
+                                    | TypeKind::Complex(..)
+                                    | TypeKind::Array(..)
+                                    | TypeKind::Vector(..)
+                                    | TypeKind::Pointer(..)
+                                    | TypeKind::Reference(..)
+                                    | TypeKind::Function(..)
+                                    | TypeKind::ResolvedTypeRef(..)
+                                    | TypeKind::Opaque
+                                    | TypeKind::TypeParam => return true,
                                     _ => {}
                                 }
                                 if self.is_stdint_type(&name) {
@@ -2434,12 +2308,9 @@ If you encounter an error missing from this list, please file an issue or a PR!"
                                 return false;
                             }
 
-                            let mut prefix_path =
-                                parent.path_for_allowlisting(self).clone();
+                            let mut prefix_path = parent.path_for_allowlisting(self).clone();
                             enum_.variants().iter().any(|variant| {
-                                prefix_path.push(
-                                    variant.name_for_allowlisting().into(),
-                                );
+                                prefix_path.push(variant.name_for_allowlisting().into());
                                 let name = prefix_path[1..].join("::");
                                 prefix_path.pop().unwrap();
                                 self.options().allowlisted_vars.matches(name)
@@ -2457,31 +2328,23 @@ If you encounter an error missing from this list, please file an issue or a PR!"
             roots
         };
 
-        let allowlisted_items_predicate =
-            if self.options().allowlist_recursively {
-                traversal::all_edges
-            } else {
-                // Only follow InnerType edges from the allowlisted roots.
-                // Such inner types (e.g. anonymous structs/unions) are
-                // always emitted by codegen, and they need to be allowlisted
-                // to make sure they are processed by e.g. the derive analysis.
-                traversal::only_inner_type_edges
-            };
+        let allowlisted_items_predicate = if self.options().allowlist_recursively {
+            traversal::all_edges
+        } else {
+            // Only follow InnerType edges from the allowlisted roots.
+            // Such inner types (e.g. anonymous structs/unions) are
+            // always emitted by codegen, and they need to be allowlisted
+            // to make sure they are processed by e.g. the derive analysis.
+            traversal::only_inner_type_edges
+        };
 
-        let allowlisted = AllowlistedItemsTraversal::new(
-            self,
-            roots.clone(),
-            allowlisted_items_predicate,
-        )
-        .collect::<ItemSet>();
+        let allowlisted =
+            AllowlistedItemsTraversal::new(self, roots.clone(), allowlisted_items_predicate)
+                .collect::<ItemSet>();
 
         let codegen_items = if self.options().allowlist_recursively {
-            AllowlistedItemsTraversal::new(
-                self,
-                roots,
-                traversal::codegen_edges,
-            )
-            .collect::<ItemSet>()
+            AllowlistedItemsTraversal::new(self, roots, traversal::codegen_edges)
+                .collect::<ItemSet>()
         } else {
             allowlisted.clone()
         };
@@ -2499,6 +2362,10 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
         for item in self.options().allowlisted_types.unmatched_items() {
             unused_regex_diagnostic(item, "--allowlist-type", self);
+        }
+
+        for item in self.options().allowlisted_items.unmatched_items() {
+            unused_regex_diagnostic(item, "--allowlist-items", self);
         }
     }
 
@@ -2529,18 +2396,14 @@ If you encounter an error missing from this list, please file an issue or a PR!"
 
         let mut enum_typedef_combos = HashSet::default();
         for item in &self.items {
-            if let Some(ItemKind::Module(module)) =
-                item.as_ref().map(Item::kind)
-            {
+            if let Some(ItemKind::Module(module)) = item.as_ref().map(Item::kind) {
                 // Find typedefs in this module, and build set of their names.
                 let mut names_of_typedefs = HashSet::default();
                 for child_id in module.children() {
                     if let Some(ItemKind::Type(ty)) =
                         self.items[child_id.0].as_ref().map(Item::kind)
                     {
-                        if let (Some(name), TypeKind::Alias(type_id)) =
-                            (ty.name(), ty.kind())
-                        {
+                        if let (Some(name), TypeKind::Alias(type_id)) = (ty.name(), ty.kind()) {
                             // We disregard aliases that refer to the enum
                             // itself, such as in `typedef enum { ... } Enum;`.
                             if type_id
@@ -2591,20 +2454,16 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         let _t = self.timer("compute_cannot_derive_debug");
         assert!(self.cannot_derive_debug.is_none());
         if self.options.derive_debug {
-            self.cannot_derive_debug =
-                Some(as_cannot_derive_set(analyze::<CannotDerive>((
-                    self,
-                    DeriveTrait::Debug,
-                ))));
+            self.cannot_derive_debug = Some(as_cannot_derive_set(analyze::<CannotDerive>((
+                self,
+                DeriveTrait::Debug,
+            ))));
         }
     }
 
     /// Look up whether the item with `id` can
     /// derive debug or not.
-    pub(crate) fn lookup_can_derive_debug<Id: Into<ItemId>>(
-        &self,
-        id: Id,
-    ) -> bool {
+    pub(crate) fn lookup_can_derive_debug<Id: Into<ItemId>>(&self, id: Id) -> bool {
         let id = id.into();
         assert!(
             self.in_codegen_phase(),
@@ -2621,20 +2480,16 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         let _t = self.timer("compute_cannot_derive_default");
         assert!(self.cannot_derive_default.is_none());
         if self.options.derive_default {
-            self.cannot_derive_default =
-                Some(as_cannot_derive_set(analyze::<CannotDerive>((
-                    self,
-                    DeriveTrait::Default,
-                ))));
+            self.cannot_derive_default = Some(as_cannot_derive_set(analyze::<CannotDerive>((
+                self,
+                DeriveTrait::Default,
+            ))));
         }
     }
 
     /// Look up whether the item with `id` can
     /// derive default or not.
-    pub(crate) fn lookup_can_derive_default<Id: Into<ItemId>>(
-        &self,
-        id: Id,
-    ) -> bool {
+    pub(crate) fn lookup_can_derive_default<Id: Into<ItemId>>(&self, id: Id) -> bool {
         let id = id.into();
         assert!(
             self.in_codegen_phase(),
@@ -2650,11 +2505,10 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     fn compute_cannot_derive_copy(&mut self) {
         let _t = self.timer("compute_cannot_derive_copy");
         assert!(self.cannot_derive_copy.is_none());
-        self.cannot_derive_copy =
-            Some(as_cannot_derive_set(analyze::<CannotDerive>((
-                self,
-                DeriveTrait::Copy,
-            ))));
+        self.cannot_derive_copy = Some(as_cannot_derive_set(analyze::<CannotDerive>((
+            self,
+            DeriveTrait::Copy,
+        ))));
     }
 
     /// Compute whether we can derive hash.
@@ -2662,20 +2516,16 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         let _t = self.timer("compute_cannot_derive_hash");
         assert!(self.cannot_derive_hash.is_none());
         if self.options.derive_hash {
-            self.cannot_derive_hash =
-                Some(as_cannot_derive_set(analyze::<CannotDerive>((
-                    self,
-                    DeriveTrait::Hash,
-                ))));
+            self.cannot_derive_hash = Some(as_cannot_derive_set(analyze::<CannotDerive>((
+                self,
+                DeriveTrait::Hash,
+            ))));
         }
     }
 
     /// Look up whether the item with `id` can
     /// derive hash or not.
-    pub(crate) fn lookup_can_derive_hash<Id: Into<ItemId>>(
-        &self,
-        id: Id,
-    ) -> bool {
+    pub(crate) fn lookup_can_derive_hash<Id: Into<ItemId>>(&self, id: Id) -> bool {
         let id = id.into();
         assert!(
             self.in_codegen_phase(),
@@ -2691,22 +2541,17 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     fn compute_cannot_derive_partialord_partialeq_or_eq(&mut self) {
         let _t = self.timer("compute_cannot_derive_partialord_partialeq_or_eq");
         assert!(self.cannot_derive_partialeq_or_partialord.is_none());
-        if self.options.derive_partialord ||
-            self.options.derive_partialeq ||
-            self.options.derive_eq
+        if self.options.derive_partialord || self.options.derive_partialeq || self.options.derive_eq
         {
-            self.cannot_derive_partialeq_or_partialord =
-                Some(analyze::<CannotDerive>((
-                    self,
-                    DeriveTrait::PartialEqOrPartialOrd,
-                )));
+            self.cannot_derive_partialeq_or_partialord = Some(analyze::<CannotDerive>((
+                self,
+                DeriveTrait::PartialEqOrPartialOrd,
+            )));
         }
     }
 
     /// Look up whether the item with `id` can derive `Partial{Eq,Ord}`.
-    pub(crate) fn lookup_can_derive_partialeq_or_partialord<
-        Id: Into<ItemId>,
-    >(
+    pub(crate) fn lookup_can_derive_partialeq_or_partialord<Id: Into<ItemId>>(
         &self,
         id: Id,
     ) -> CanDerive {
@@ -2727,10 +2572,7 @@ If you encounter an error missing from this list, please file an issue or a PR!"
     }
 
     /// Look up whether the item with `id` can derive `Copy` or not.
-    pub(crate) fn lookup_can_derive_copy<Id: Into<ItemId>>(
-        &self,
-        id: Id,
-    ) -> bool {
+    pub(crate) fn lookup_can_derive_copy<Id: Into<ItemId>>(&self, id: Id) -> bool {
         assert!(
             self.in_codegen_phase(),
             "We only compute can_derive_debug when we enter codegen"
@@ -2740,23 +2582,19 @@ If you encounter an error missing from this list, please file an issue or a PR!"
         // derive `Copy` or not.
         let id = id.into();
 
-        !self.lookup_has_type_param_in_array(id) &&
-            !self.cannot_derive_copy.as_ref().unwrap().contains(&id)
+        !self.lookup_has_type_param_in_array(id)
+            && !self.cannot_derive_copy.as_ref().unwrap().contains(&id)
     }
 
     /// Compute whether the type has type parameter in array.
     fn compute_has_type_param_in_array(&mut self) {
         let _t = self.timer("compute_has_type_param_in_array");
         assert!(self.has_type_param_in_array.is_none());
-        self.has_type_param_in_array =
-            Some(analyze::<HasTypeParameterInArray>(self));
+        self.has_type_param_in_array = Some(analyze::<HasTypeParameterInArray>(self));
     }
 
     /// Look up whether the item with `id` has type parameter in array or not.
-    pub(crate) fn lookup_has_type_param_in_array<Id: Into<ItemId>>(
-        &self,
-        id: Id,
-    ) -> bool {
+    pub(crate) fn lookup_has_type_param_in_array<Id: Into<ItemId>>(&self, id: Id) -> bool {
         assert!(
             self.in_codegen_phase(),
             "We only compute has array when we enter codegen"
@@ -2910,17 +2748,13 @@ impl ItemResolver {
 
             let ty_kind = item.as_type().map(|t| t.kind());
             match ty_kind {
-                Some(&TypeKind::ResolvedTypeRef(next_id))
-                    if self.through_type_refs =>
-                {
+                Some(&TypeKind::ResolvedTypeRef(next_id)) if self.through_type_refs => {
                     id = next_id.into();
                 }
                 // We intentionally ignore template aliases here, as they are
                 // more complicated, and don't represent a simple renaming of
                 // some type.
-                Some(&TypeKind::Alias(next_id))
-                    if self.through_type_aliases =>
-                {
+                Some(&TypeKind::Alias(next_id)) if self.through_type_aliases => {
                     id = next_id.into();
                 }
                 _ => return item,
@@ -2968,15 +2802,15 @@ impl TemplateParameters for PartialType {
         // Wouldn't it be nice if libclang would reliably give us this
         // information‽
         match self.decl().kind() {
-            clang_sys::CXCursor_ClassTemplate |
-            clang_sys::CXCursor_FunctionTemplate |
-            clang_sys::CXCursor_TypeAliasTemplateDecl => {
+            clang_sys::CXCursor_ClassTemplate
+            | clang_sys::CXCursor_FunctionTemplate
+            | clang_sys::CXCursor_TypeAliasTemplateDecl => {
                 let mut num_params = 0;
                 self.decl().visit(|c| {
                     match c.kind() {
-                        clang_sys::CXCursor_TemplateTypeParameter |
-                        clang_sys::CXCursor_TemplateTemplateParameter |
-                        clang_sys::CXCursor_NonTypeTemplateParameter => {
+                        clang_sys::CXCursor_TemplateTypeParameter
+                        | clang_sys::CXCursor_TemplateTemplateParameter
+                        | clang_sys::CXCursor_NonTypeTemplateParameter => {
                             num_params += 1;
                         }
                         _ => {}

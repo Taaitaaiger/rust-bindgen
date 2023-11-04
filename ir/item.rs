@@ -98,13 +98,13 @@ pub(crate) trait ItemAncestors {
     fn ancestors<'a>(&self, ctx: &'a BindgenContext) -> ItemAncestorsIter<'a>;
 }
 
-#[cfg(__testing_only_extra_assertions)]
+#[cfg(feature = "__testing_only_extra_assertions")]
 type DebugOnlyItemSet = ItemSet;
 
-#[cfg(not(__testing_only_extra_assertions))]
+#[cfg(not(feature = "__testing_only_extra_assertions"))]
 struct DebugOnlyItemSet;
 
-#[cfg(not(__testing_only_extra_assertions))]
+#[cfg(not(feature = "__testing_only_extra_assertions"))]
 impl DebugOnlyItemSet {
     fn new() -> Self {
         DebugOnlyItemSet
@@ -1465,7 +1465,7 @@ impl Item {
                                 cb.include_file(&included_file);
                             }
 
-                            ctx.add_dep(included_file);
+                            ctx.add_dep(included_file.into_boxed_str());
                         }
                     }
                 }
